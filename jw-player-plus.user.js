@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JW-Player shortcuts delegate
 // @namespace    https://video.aktualne.cz
-// @version      1.0.1
+// @version      1.1.1
 // @description  Delegate keyboard events to a jw-player element if it is found
 //               in the page so its keyboard shortcuts work without having to click on the player first to focus it.
 //               Also fast-forwards ads.
@@ -88,7 +88,7 @@
     }
 
     document.onkeydown = function (e) {
-        console.log("keydown: ", e);
+        console.debug("keydown: ", e);
         //debugger;
         if(e.shiftKey && e.keyCode === 188){
             slowDown();
@@ -132,40 +132,46 @@
         }
     }
 
-    function checkForSkippable(){
-        console.log("Checking skippable");
-        var s = document.querySelector('.jw-skiptext') || document.querySelector('div.jw-skippable');
-        if (s) {
-            console.log("click text");
-            mute();
-            fastForward();
-            skipAd(s);
-        } else {
-            stopFastForward();
-            unmute();
-        }
-        setTimeout(checkForSkippable, 500);
-        //var st = getSkipTime();
+    function getSkippable(){
+        return document.querySelector('.jw-skiptext') || document.querySelector('div.jw-skippable');
     }
 
-    setTimeout(checkForSkippable, 500);
+    function addMnemonic(element, key) {
+        if (element && key && key.length === 1 && element.innerText.indexOf(key) > 0) {
+            element.innerHTML = element.innerText.replace(key, `<u>${key}</u>`);
+            element.accessKey = key.toLowerCase;
+        }
+    }
 
-    function getSkipTime(){
-        var t = document.querySelector('span.jw-skiptext');
-        if(t){
-            var m = t.innerText.match(/\d+/);
-            if(m && m.length > 0){
-                var n = Number.parseInt(m[0]);
-                if(!isNan(n)){
-                    return n;
-                }
+    const hasAddedNodes = (mutation) => mutation.addedNodes.length > 0;
+
+    const mutationObserver = new MutationObserver(function (mutations) {
+        mutations
+            .filter(hasAddedNodes)
+            .forEach((mutation) => {
+            let s = getSkippable();
+            if (s) {
+                console.debug("click text");
+                mute();
+                fastForward();
+                addMnemonic(s, 'p');
+                skipAd(s);
+            } else {
+                stopFastForward();
+                unmute();
             }
-        }
-        var s = document.querySelector('div.jw-skippable');
-        if(s){
-            return 0;
-        }
-        return -1;
-    }
+            console.trace('Irrelevant mutation.');
+        });
+    });
+
+    const observeOptions = {
+        attributes: false,
+        characterData: false,
+        childList: true,
+        subtree: true,
+        attributeOldValue: false,
+        characterDataOldValue: false,
+    };
+    mutationObserver.observe(document.body, observeOptions);
 
 })();
